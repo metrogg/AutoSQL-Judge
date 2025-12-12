@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoSQL-Judge 后台管理</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="/static/css/apple-style.css">
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7ff 0%, #f9fafb 100%);
+        }
+
+        .admin-main {
+            max-width: 1200px;
+            margin: 24px auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .admin-table thead {
+            background: #f2f2f7;
+        }
+
+        .admin-table th,
+        .admin-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e5e5ea;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .admin-table tbody tr:hover {
+            background: #f9f9ff;
+        }
+
+        .tag-result {
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+        }
+
+        .tag-pass {
+            background: #e6f9ed;
+            color: #1e9e4a;
+        }
+
+        .tag-fail {
+            background: #fdeeee;
+            color: #d42d2d;
+        }
+
+        .tag-error {
+            background: #fff4e5;
+            color: #c47a1f;
+        }
+
+        .navbar-admin {
+            backdrop-filter: blur(18px);
+            background: rgba(250, 250, 252, 0.8);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 10px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .navbar-admin-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .navbar-admin-title span {
+            font-size: 18px;
+        }
+
+        .navbar-admin-sub {
+            font-size: 12px;
+            color: #8e8e93;
+        }
+
+        .btn-link-like {
+            border: none;
+            background: transparent;
+            font-size: 13px;
+            color: #007aff;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar-admin">
+        <div>
+            <div class="navbar-admin-title">
+                <i class="bi bi-speedometer2"></i>
+                <span>AutoSQL-Judge 后台</span>
+            </div>
+            <div class="navbar-admin-sub">题目与提交记录概览（最近 50 条）</div>
+        </div>
+        <div>
+            <a href="/" class="btn-link-like">
+                <i class="bi bi-box-arrow-in-left"></i>
+                返回练习端
+            </a>
+        </div>
+    </nav>
+
+    <main class="admin-main">
+        <section class="apple-card">
+            <div class="card-header">
+                <span><i class="bi bi-funnel"></i> 筛选条件</span>
+            </div>
+            <div class="card-body">
+                <form method="get"
+                    style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; font-size:13px;">
+                    <div>
+                        <label style="display:block; margin-bottom:4px; color:#8e8e93;">数据集 dataset_key</label>
+                        <input type="text" name="dataset_key" value="{{ dataset_key_filter }}"
+                            style="padding:4px 8px; border-radius:8px; border:1px solid #d1d1d6; min-width:160px;">
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:4px; color:#8e8e93;">判题结果</label>
+                        <select name="result" style="padding:4px 8px; border-radius:8px; border:1px solid #d1d1d6;">
+                            <option value="" {% if not result_filter %}selected{% endif %}>全部</option>
+                            <option value="Pass" {% if result_filter=='Pass' %}selected{% endif %}>Pass</option>
+                            <option value="Fail" {% if result_filter=='Fail' %}selected{% endif %}>Fail</option>
+                            <option value="Error" {% if result_filter=='Error' %}selected{% endif %}>Error</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:4px; color:#8e8e93;">用户ID</label>
+                        <input type="text" name="user_id" value="{{ user_id_filter }}"
+                            style="padding:4px 8px; border-radius:8px; border:1px solid #d1d1d6; min-width:100px;">
+                    </div>
+                    <div>
+                        <button type="submit" class="btn-link-like">
+                            <i class="bi bi-search"></i>
+                            应用筛选
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section class="apple-card">
+            <div class="card-header">
+                <span><i class="bi bi-people"></i> 学生概览（users）</span>
+            </div>
+            <div class="card-body" style="overflow-x:auto;">
+                {% if users_stats %}
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>用户ID</th>
+                            <th>用户名</th>
+                            <th>总积分</th>
+                            <th>通过题数</th>
+                            <th>提交次数</th>
+                            <th>最近提交时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users_stats %}
+                        <tr>
+                            <td>{{ u.id }}</td>
+                            <td>{{ u.username }}</td>
+                            <td>{{ u.total_score }}</td>
+                            <td>{{ u.passed_count }}</td>
+                            <td>{{ u.submit_count }}</td>
+                            <td>{{ u.last_submit_at or '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div style="color:#8e8e93; font-size: 13px;">暂无学生数据。</div>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="apple-card">
+            <div class="card-header">
+                <span><i class="bi bi-stars"></i> LLM 调用日志（llm_calls）</span>
+            </div>
+            <div class="card-body" style="overflow-x:auto;">
+                {% if llm_logs %}
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>数据集 key</th>
+                            <th>数据集ID</th>
+                            <th>难度</th>
+                            <th>状态</th>
+                            <th>耗时(ms)</th>
+                            <th>错误信息</th>
+                            <th>时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in llm_logs %}
+                        <tr>
+                            <td>{{ log.id }}</td>
+                            <td>{{ log.dataset_key }}</td>
+                            <td>{{ log.dataset_id or '-' }}</td>
+                            <td>{{ log.difficulty or '-' }}</td>
+                            <td>{{ log.status }}</td>
+                            <td>{{ (log.latency_ms or 0) | round(1) }}</td>
+                            <td style="max-width:280px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"
+                                title="{{ log.error_message }}">{{ log.error_message or '-' }}</td>
+                            <td>{{ log.created_at }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div style="color:#8e8e93; font-size: 13px;">暂无 LLM 调用数据。</div>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="apple-card">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <span><i class="bi bi-collection"></i> 题目概览（questions）</span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <a href="/admin/questions/edit" class="btn-link-like">
+                        <i class="bi bi-plus-circle"></i>
+                        新建题目
+                    </a>
+                    <form method="post" action="/admin/questions/dedup"
+                        onsubmit="return confirm('将按 dataset_id + title + SQL 去重，仅保留每组一条，确定执行？');">
+                        <input type="hidden" name="next" value="/admin">
+                        <button type="submit" class="btn-link-like">
+                            <i class="bi bi-trash3"></i>
+                            清理重复题目
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="card-body" style="overflow-x:auto;">
+                {% if questions %}
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>题目标题</th>
+                            <th>难度</th>
+                            <th>分值</th>
+                            <th>数据集</th>
+                            <th>来源</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for q in questions %}
+                        <tr>
+                            <td>{{ q.id }}</td>
+                            <td style="max-width: 380px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                                title="{{ q.title }}">{{ q.title }}</td>
+                            <td>{{ q.difficulty }}</td>
+                            <td>{{ q.score }}</td>
+                            <td>{{ q.dataset_key or '-' }}</td>
+                            <td>
+                                {% if q.source == 'llm' %}
+                                <span class="tag-result tag-pass">AI 生成</span>
+                                {% else %}
+                                <span class="tag-result" style="background:#e5e5ea; color:#333;">题库</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ q.created_at }}</td>
+                            <td>
+                                <a href="/admin/questions/edit?id={{ q.id }}" class="btn-link-like"
+                                    style="margin-right:4px;">
+                                    <i class="bi bi-pencil"></i>
+                                    编辑
+                                </a>
+                                <form method="post" action="/admin/questions/update_source"
+                                    style="display:inline-block; margin-right:4px;">
+                                    <input type="hidden" name="question_id" value="{{ q.id }}">
+                                    <input type="hidden" name="next" value="/admin">
+                                    <input type="hidden" name="source" value="db">
+                                    <button type="submit" class="btn-link-like" style="color:#007aff;">
+                                        标记为题库
+                                    </button>
+                                </form>
+                                <form method="post" action="/admin/questions/update_source"
+                                    style="display:inline-block; margin-right:4px;">
+                                    <input type="hidden" name="question_id" value="{{ q.id }}">
+                                    <input type="hidden" name="next" value="/admin">
+                                    <input type="hidden" name="source" value="llm">
+                                    <button type="submit" class="btn-link-like" style="color:#34c759;">
+                                        标记为 AI
+                                    </button>
+                                </form>
+                                <form method="post" action="/admin/questions/delete" style="display:inline-block;"
+                                    onsubmit="return confirm('确定删除该题目（ID={{ q.id }}）？');">
+                                    <input type="hidden" name="question_id" value="{{ q.id }}">
+                                    <input type="hidden" name="next" value="/admin">
+                                    <button type="submit" class="btn-link-like" style="color:#ff3b30;">
+                                        删除
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div style="color:#8e8e93; font-size: 13px;">暂无题目数据。</div>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="apple-card">
+            <div class="card-header">
+                <span><i class="bi bi-clock-history"></i> 提交记录（records）</span>
+            </div>
+            <div class="card-body" style="overflow-x:auto;">
+                {% if records %}
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>用户ID</th>
+                            <th>题目ID</th>
+                            <th>结果</th>
+                            <th>得分</th>
+                            <th>耗时(ms)</th>
+                            <th>提交时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in records %}
+                        <tr>
+                            <td>{{ r.id }}</td>
+                            <td>{{ r.user_id }}</td>
+                            <td>{{ r.question_id }}</td>
+                            <td>
+                                <span
+                                    class="tag-result {% if r.result == 'Pass' %}tag-pass{% elif r.result == 'Fail' %}tag-fail{% else %}tag-error{% endif %}">
+                                    {{ r.result }}
+                                </span>
+                            </td>
+                            <td>{{ r.score }}</td>
+                            <td>{{ (r.exec_time * 1000) | round(1) }}</td>
+                            <td>{{ r.created_at }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div style="color:#8e8e93; font-size: 13px;">暂无提交记录。</div>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="apple-card">
+            <div class="card-header">
+                <span><i class="bi bi-robot"></i> 后台 LLM 管理助手</span>
+            </div>
+            <div class="card-body">
+                <div id="admin-llm-log"
+                    style="max-height:140px; overflow-y:auto; font-size:12px; color:#666; background:#f5f5f7; border-radius:10px; padding:8px 10px; margin-bottom:8px;">
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="admin-llm-input" placeholder="向助手询问：例如 ‘最近通过率怎么样？’ 或 ‘帮我想一套期末测验策略’"
+                        style="flex:1; padding:6px 10px; border-radius:999px; border:1px solid #d1d1d6; font-size:13px;">
+                    <button class="btn-secondary" type="button" onclick="sendAdminLlmMessage()">
+                        <i class="bi bi-send"></i>
+                        发送
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script>
+        function appendAdminLlmLog(prefix, text) {
+            var box = document.getElementById('admin-llm-log');
+            if (!box) return;
+            var line = document.createElement('div');
+            line.textContent = prefix + text;
+            box.appendChild(line);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function sendAdminLlmMessage() {
+            var input = document.getElementById('admin-llm-input');
+            if (!input) return;
+            var msg = (input.value || '').trim();
+            if (!msg) return;
+
+            appendAdminLlmLog('你：', msg);
+            input.value = '';
+
+            axios.post('/api/admin/llm_chat', { message: msg })
+                .then(function (res) {
+                    if (res.data && res.data.status === 'success' && res.data.data) {
+                        appendAdminLlmLog('助手：', res.data.data.reply || '');
+                    } else {
+                        appendAdminLlmLog('助手：', '调用失败');
+                    }
+                })
+                .catch(function (err) {
+                    var msg = (err.response && err.response.data && err.response.data.msg) || err.message || '出错了';
+                    appendAdminLlmLog('助手：', '调用出错：' + msg);
+                });
+        }
+    </script>
+</body>
+
+</html>

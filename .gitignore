@@ -1,15 +1,15 @@
-# Python 缓存文件 (不用传)
+# Python
 __pycache__/
-*.py[cod]
+*.pyc
+*.pyo
+*.pyd
 
-# 环境变量与密钥 (保护你的密码)
-.env
+# 虚拟环境
 venv/
+.env/
+.env.*/
 .venv/
 
-# IDE 配置文件
-.idea/
+# IDE
 .vscode/
-
-# 数据库文件 (如果用了SQLite才需要，MySQL不需要，但也写上)
-*.sqlite3
+.idea/

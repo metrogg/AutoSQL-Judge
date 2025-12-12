@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AutoSQL-Judge | 智能 SQL 练习平台</title>
+
+    <!-- Vue 3 & Axios & Monaco Loader -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+
+    <!-- Icons & 全局样式 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="/static/css/apple-style.css" />
+
+    <style>
+        body {
+            background: #000;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont,
+                "Segoe UI", sans-serif;
+        }
+
+        .navbar-glass {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 24px;
+            backdrop-filter: blur(18px);
+            background: rgba(20, 20, 22, 0.9);
+            border-bottom: 1px solid rgba(60, 60, 67, 0.36);
+        }
+
+        .navbar-glass .brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        .navbar-glass .brand i {
+            color: #0a84ff;
+            font-size: 20px;
+        }
+
+        .navbar-glass .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .score-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(255, 149, 0, 0.12);
+            color: #ff9500;
+            font-size: 12px;
+        }
+
+        .main-layout {
+            max-width: 1100px;
+            margin: 16px auto 32px;
+            padding: 0 16px 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .apple-card {
+            background: #1c1c1e;
+            border-radius: 18px;
+            padding: 16px 18px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(99, 99, 102, 0.4);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .card-header span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .card-body {
+            font-size: 13px;
+        }
+
+        .btn-primary,
+        .btn-secondary {
+            border-radius: 999px;
+            padding: 6px 12px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0a84ff, #64d2ff);
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: rgba(44, 44, 46, 0.9);
+            color: #f5f5f7;
+        }
+
+        .btn-primary:disabled,
+        .btn-secondary:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        .schema-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+        }
+
+        .table-item {
+            background: #000;
+            border-radius: 12px;
+            padding: 10px 12px;
+            border: 1px solid #2c2c2e;
+        }
+
+        .table-name {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .column-list {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+            font-size: 12px;
+            color: #9f9fa4;
+        }
+
+        .column-list li::before {
+            content: "·";
+            margin-right: 4px;
+        }
+
+        .question-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .difficulty-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 52px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            margin-top: 8px;
+            background: #2c2c2e;
+        }
+
+        .badge-easy {
+            color: #34c759;
+            background: rgba(52, 199, 89, 0.16);
+        }
+
+        .badge-medium {
+            color: #ffd60a;
+            background: rgba(255, 214, 10, 0.16);
+        }
+
+        .badge-hard {
+            color: #ff453a;
+            background: rgba(255, 69, 58, 0.16);
+        }
+
+        .result-table {
+            width: 100%;
+            margin-top: 12px;
+            border-collapse: collapse;
+            font-size: 12px;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .result-table th {
+            background: #1c1c1e;
+            color: #f5f5f7;
+            padding: 6px 8px;
+            text-align: left;
+            font-weight: 500;
+            border-bottom: 1px solid #2c2c2e;
+        }
+
+        .result-table td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #1c1c1e;
+            color: #d1d1d6;
+        }
+
+        .result-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .editor-wrapper {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #2c2c2e;
+            background: #000;
+        }
+
+        .sql-editor-textarea {
+            width: 100%;
+            height: 220px;
+            border: none;
+            outline: none;
+            resize: vertical;
+            background: #000;
+            color: #fff;
+            padding: 12px;
+            font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: 13px;
+        }
+
+        .toast-container {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 2200;
+        }
+
+        .toast {
+            min-width: 220px;
+            max-width: 320px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            background: rgba(28, 28, 30, 0.96);
+            color: #f5f5f7;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(60, 60, 67, 0.4);
+        }
+
+        .toast.success {
+            border-left: 3px solid #34c759;
+        }
+
+        .toast.error {
+            border-left: 3px solid #ff3b30;
+        }
+
+        .toast.info {
+            border-left: 3px solid #0a84ff;
+        }
+
+        .ai-floating-toggle {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(28, 28, 30, 0.9);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            z-index: 2000;
+        }
+
+        .ai-floating-panel {
+            position: fixed;
+            width: 360px;
+            max-height: 520px;
+            background: #1c1c1e;
+            border-radius: 16px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 2100;
+        }
+
+        .ai-floating-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            font-size: 13px;
+            color: #f5f5f7;
+            cursor: move;
+            background: linear-gradient(135deg, #0a84ff, #64d2ff);
+        }
+
+        .ai-floating-close {
+            border: none;
+            background: transparent;
+            color: #f5f5f7;
+            cursor: pointer;
+        }
+
+        .ai-floating-body {
+            padding: 10px 12px;
+            flex: 1;
+            overflow-y: auto;
+            background: #1c1c1e;
+        }
+
+        .ai-floating-empty {
+            font-size: 12px;
+            color: #8e8e93;
+        }
+
+        .ai-floating-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .ai-msg {
+            display: flex;
+        }
+
+        .ai-msg-user {
+            justify-content: flex-end;
+        }
+
+        .ai-msg-assistant {
+            justify-content: flex-start;
+        }
+
+        .ai-msg-bubble {
+            max-width: 80%;
+            padding: 6px 10px;
+            border-radius: 14px;
+            font-size: 12px;
+            white-space: pre-wrap;
+            line-height: 1.45;
+        }
+
+        .ai-msg-user .ai-msg-bubble {
+            background: #0a84ff;
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai-msg-assistant .ai-msg-bubble {
+            background: #2c2c2e;
+            color: #f5f5f7;
+            border-bottom-left-radius: 4px;
+        }
+
+        .ai-floating-input {
+            padding: 8px 10px;
+            border-top: 1px solid #2c2c2e;
+            background: #1c1c1e;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ai-floating-input textarea {
+            flex: 1;
+            resize: none;
+            border-radius: 999px;
+            padding: 6px 10px;
+            border: 1px solid #3a3a3c;
+            background: #000;
+            color: #fff;
+            font-size: 13px;
+            min-height: 34px;
+            max-height: 72px;
+            outline: none;
+        }
+
+        .ai-typing-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #2c2c2e;
+        }
+
+        .ai-typing-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #f5f5f7;
+            animation: aiBounce 1s infinite ease-in-out;
+        }
+
+        .ai-typing-dot:nth-child(2) {
+            animation-delay: 0.15s;
+        }
+
+        .ai-typing-dot:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+
+        @keyframes aiBounce {
+
+            0%,
+            80%,
+            100% {
+                transform: translateY(0);
+                opacity: 0.4;
+            }
+
+            40% {
+                transform: translateY(-4px);
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-layout {
+                padding: 0 8px 32px;
+            }
+
+            .ai-floating-panel {
+                width: calc(100% - 32px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    {% raw %}
+    <div id="app">
+        <nav class="navbar-glass">
+            <div class="brand">
+                <i class="bi bi-database-fill-gear"></i>
+                <span>AutoSQL-Judge</span>
+            </div>
+            <div class="user-info">
+                <span>
+                    当前用户：
+                    <strong v-if="currentUser">{{ currentUser.username }}</strong>
+                    <span v-else>未登录</span>
+                </span>
+                <span class="score-badge">
+                    <i class="bi bi-trophy-fill" style="font-size: 12px;"></i>
+                    {{ totalScore }} 分
+                </span>
+                <button class="btn-secondary" @click="changeDataset">
+                    <i class="bi bi-arrow-repeat"></i>
+                    切换场景
+                </button>
+                <button v-if="!currentUser" class="btn-secondary" @click="loginOrRegister">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    登录 / 注册
+                </button>
+                <button v-else class="btn-secondary" @click="logout">
+                    <i class="bi bi-box-arrow-right"></i>
+                    退出
+                </button>
+            </div>
+        </nav>
+
+        <main class="main-layout">
+            <!-- 数据库 Schema -->
+            <div class="apple-card">
+                <div class="card-header">
+                    <span><i class="bi bi-table"></i> 数据库 Schema</span>
+                    <span style="font-size: 12px; color: #86868b;">{{ currentDataset }}</span>
+                </div>
+                <div class="card-body">
+                    <ul class="schema-list" v-if="currentDataset === 'student_scores'">
+                        <li class="table-item">
+                            <div class="table-name"><i class="bi bi-grid-3x3"></i> students</div>
+                            <ul class="column-list">
+                                <li>student_id (PK)</li>
+                                <li>name</li>
+                                <li>age</li>
+                                <li>major</li>
+                            </ul>
+                            <div v-if="schemaPreview.students" style="margin-top: 6px;">
+                                <div style="font-size: 11px; color:#8e8e93; margin-bottom: 2px;">示例数据（前 5 行）</div>
+                                <table class="result-table">
+                                    <thead>
+                                        <tr>
+                                            <th v-for="col in schemaPreview.students.columns" :key="'stu-col-' + col">
+                                                {{ col }}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(row, rIdx) in schemaPreview.students.rows" :key="'stu-row-' + rIdx">
+                                            <td v-for="(val, cIdx) in row" :key="'stu-cell-' + rIdx + '-' + cIdx">
+                                                {{ val }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </li>
+                        <li class="table-item">
+                            <div class="table-name"><i class="bi bi-grid-3x3"></i> courses</div>
+                            <ul class="column-list">
+                                <li>course_id (PK)</li>
+                                <li>name</li>
+                                <li>credit</li>
+                            </ul>
+                            <div v-if="schemaPreview.courses" style="margin-top: 6px;">
+                                <div style="font-size: 11px; color:#8e8e93; margin-bottom: 2px;">示例数据（前 5 行）</div>
+                                <table class="result-table">
+                                    <thead>
+                                        <tr>
+                                            <th v-for="col in schemaPreview.courses.columns" :key="'cou-col-' + col">
+                                                {{ col }}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(row, rIdx) in schemaPreview.courses.rows" :key="'cou-row-' + rIdx">
+                                            <td v-for="(val, cIdx) in row" :key="'cou-cell-' + rIdx + '-' + cIdx">
+                                                {{ val }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </li>
+                        <li class="table-item">
+                            <div class="table-name"><i class="bi bi-grid-3x3"></i> scores</div>
+                            <ul class="column-list">
+                                <li>id (PK)</li>
+                                <li>student_id (FK)</li>
+                                <li>course_id (FK)</li>
+                                <li>score</li>
+                            </ul>
+                            <div v-if="schemaPreview.scores" style="margin-top: 6px;">
+                                <div style="font-size: 11px; color:#8e8e93; margin-bottom: 2px;">示例数据（前 5 行）</div>
+                                <table class="result-table">
+                                    <thead>
+                                        <tr>
+                                            <th v-for="col in schemaPreview.scores.columns" :key="'sco-col-' + col">
+                                                {{ col }}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(row, rIdx) in schemaPreview.scores.rows" :key="'sco-row-' + rIdx">
+                                            <td v-for="(val, cIdx) in row" :key="'sco-cell-' + rIdx + '-' + cIdx">
+                                                {{ val }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </li>
+                    </ul>
+                    <div v-else style="text-align: center; color: #999; margin-top: 40px;">暂未配置该数据集 Schema</div>
+                </div>
+            </div>
+
+            <!-- 当前题目 -->
+            <div class="apple-card">
+                <div class="card-header">
+                    <span><i class="bi bi-lightbulb"></i> 当前题目</span>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button class="btn-secondary" @click="fetchQuestion('db')" :disabled="loading">
+                            <i class="bi bi-arrow-right-circle"></i>
+                            {{ loading && loadingSource === 'db' ? '加载中...' : '题库下一题' }}
+                        </button>
+                        <button class="btn-secondary" @click="fetchQuestion('llm', null)" :disabled="loading">
+                            <i class="bi bi-stars"></i>
+                            {{ loading && loadingSource === 'llm' ? 'AI 正在出题...' : 'AI 随机一题' }}
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div v-if="loading && loadingSource === 'llm'"
+                        style="padding: 0 24px 8px; font-size: 12px; color: #86868b;">
+                        <i class="bi bi-stars"></i> AI 正在根据当前数据集生成新题目，请稍候...
+                    </div>
+                    <div v-if="currentQuestion">
+                        <div class="question-title">{{ currentQuestion.title }}</div>
+                        <span class="difficulty-badge" :class="'badge-' + currentQuestion.difficulty">
+                            {{ currentQuestion.difficulty }}
+                        </span>
+                        <span style="font-size: 13px; color: #86868b; margin-left: 8px;">
+                            分值: {{ currentQuestion.score }}
+                        </span>
+                        <span v-if="currentQuestion.source" style="font-size: 12px; color: #86868b; margin-left: 8px;">
+                            来源: {{ currentQuestion.source === 'llm' ? 'AI 生成' : '题库' }}
+                        </span>
+                        <div class="question-desc" style="margin-top: 24px;">
+                            <p>请根据上方表结构，编写 SQL 语句完成上述查询。</p>
+                            <p style="color: #86868b; font-size: 14px;">
+                                (Tips: 仅需提交 SELECT 语句，系统将自动对比结果集)
+                            </p>
+                        </div>
+                    </div>
+                    <div v-else style="display: flex; align-items: center; justify-content: center;">
+                        <span v-if="loading">加载中...</span>
+                        <span v-else>暂无题目，请尝试刷新</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI 出题对话 -->
+            <div class="apple-card">
+                <div class="card-header">
+                    <span><i class="bi bi-chat-dots"></i> AI 出题对话</span>
+                </div>
+                <div class="card-body">
+                    <div
+                        style="max-height: 180px; overflow-y: auto; border-radius: 16px; background: #1c1c1e; padding: 8px 10px; margin-bottom: 8px;">
+                        <div v-if="chatMessages.length === 0" style="font-size: 12px; color: #8e8e93;">
+                            用自然语言描述你想要的 SQL 练习题，例如：“查出每门课的平均分并按平均分倒序”，然后点击【发送】让 AI 为你生成一题。
+                        </div>
+                        <div v-else>
+                            <div v-for="(msg, idx) in chatMessages" :key="idx" style="margin-bottom: 6px;">
+                                <div v-if="msg.role === 'user'" style="font-size: 12px; color: #d1d1d6;">
+                                    <strong>你：</strong> {{ msg.content }}
+                                </div>
+                                <div v-else style="font-size: 12px; color: #64d2ff;">
+                                    <strong>AI：</strong> {{ msg.content }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input v-model="llmHint" type="text" placeholder="用一句话描述你想要的 SQL 题目..."
+                            style="flex: 1; min-height: 36px; padding: 6px 10px; border-radius: 999px; border: 1px solid #3a3a3c; background: #000; color: #fff; font-size: 13px;" />
+                        <button class="btn-secondary" @click="sendChat" :disabled="loading">
+                            <i class="bi bi-send"></i>
+                            发送
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SQL 编辑器 -->
+            <div class="apple-card">
+                <div class="card-header">
+                    <span><i class="bi bi-code-slash"></i> SQL 编辑器</span>
+                    <button class="btn-primary" @click="submitSolution" :disabled="submitting || !userSql">
+                        <i class="bi bi-play-fill"></i>
+                        {{ submitting ? '判题中...' : '运行' }}
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="editor-wrapper">
+                        <div v-if="useMonaco" id="monaco-editor" style="height: 220px;"></div>
+                        <textarea v-else class="sql-editor-textarea" v-model="userSql" spellcheck="false"
+                            placeholder="在此输入 SQL 语句..."></textarea>
+                    </div>
+
+                    <!-- 判题结果 -->
+                    <div v-if="judgeResult" style="margin-top: 16px;">
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <span
+                                :style="{ color: judgeResult.result === 'Pass' ? '#34c759' : (judgeResult.result === 'Fail' ? '#ff3b30' : '#ffd60a') }">
+                                <i class="bi" :class="getResultIcon(judgeResult.result)"></i>
+                                {{ judgeResult.result }}
+                            </span>
+                            <span style="font-size: 12px; color: #86868b;">
+                                耗时: {{ (judgeResult.execution_time * 1000).toFixed(1) }} ms
+                            </span>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 13px;">
+                            {{ judgeResult.msg }}
+                            <div v-if="judgeResult.score > 0"
+                                style="margin-top: 4px; color: #34c759; font-weight: 500;">
+                                + {{ judgeResult.score }} 积分
+                            </div>
+                        </div>
+
+                        <!-- 查询结果预览 -->
+                        <div v-if="judgeResult.preview" style="margin-top: 12px;">
+                            <div style="font-size: 12px; color: #86868b; margin-bottom: 6px;">
+                                查询结果（共 {{ judgeResult.preview.total_rows }} 行，显示前
+                                {{ Math.min(5, judgeResult.preview.total_rows) }} 行）
+                            </div>
+                            <table class="result-table">
+                                <thead>
+                                    <tr>
+                                        <th v-for="col in judgeResult.preview.columns" :key="col">{{ col }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(row, rIdx) in judgeResult.preview.rows" :key="'res-' + rIdx">
+                                        <td v-for="(val, cIdx) in row" :key="'res-cell-' + rIdx + '-' + cIdx">
+                                            {{ val }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- 操作按钮 -->
+                        <div style="margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+                            <button class="btn-secondary" type="button" @click="askExplain" :disabled="explainLoading">
+                                <i class="bi bi-chat-square-dots"></i>
+                                {{ judgeResult.result === 'Pass' ? '让 AI 点评并拓展' : '向 AI 寻求讲解' }}
+                            </button>
+                            <button v-if="currentQuestion && currentQuestion.allow_view_answer" class="btn-secondary"
+                                type="button" @click="viewAnswer" :disabled="answerLoading || !hasSubmitted">
+                                <i class="bi bi-key"></i>
+                                {{ hasSubmitted ? '查看标准答案' : '提交后可查看答案' }}
+                            </button>
+                        </div>
+
+                        <!-- 标准答案 -->
+                        <div v-if="answerText"
+                            style="margin-top: 8px; font-size: 12px; color: #d1d1d6; background: #1c1c1e; border-radius: 8px; padding: 8px 10px;">
+                            <strong>标准答案 SQL：</strong>
+                            <pre style="margin: 4px 0 0; white-space: pre-wrap; font-size: 12px;">{{ answerText }}</pre>
+                        </div>
+
+                        <!-- AI 讲解 -->
+                        <div v-if="explainText"
+                            style="margin-top: 8px; font-size: 12px; color: #d1d1d6; background: #1c1c1e; border-radius: 8px; padding: 8px 10px; white-space: pre-wrap;">
+                            <strong>AI 讲解：</strong>
+                            <div style="margin-top: 4px;">{{ explainText }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Toast 通知 -->
+        <div class="toast-container">
+            <div v-for="(toast, idx) in toasts" :key="'toast-' + idx" :class="['toast', toast.type]">
+                <i class="bi" :class="toast.icon"></i>
+                <span>{{ toast.message }}</span>
+            </div>
+        </div>
+
+        <!-- 悬浮 AI 助教按钮 -->
+        <div class="ai-floating-toggle" @click="aiPanelVisible = !aiPanelVisible">
+            <i class="bi bi-robot"></i>
+            <span>AI 助教</span>
+        </div>
+
+        <!-- 悬浮 AI 助教面板 -->
+        <div v-if="aiPanelVisible" class="ai-floating-panel"
+            :style="{ right: aiPanelRight + 'px', bottom: aiPanelBottom + 'px' }">
+            <div class="ai-floating-header" @mousedown="startDragAiPanel">
+                <span v-if="!explainLoading">AI 助教（当前题目）</span>
+                <span v-else><i class="bi bi-hourglass-split"></i> AI 正在思考...</span>
+                <button type="button" class="ai-floating-close" @click.stop="aiPanelVisible = false">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="ai-floating-body" ref="aiChatBody">
+                <div v-if="aiMessages.length === 0 && !aiTyping" class="ai-floating-empty">
+                    这里会记录你和 AI 围绕当前题目的对话。先在上方点击「运行」和「向 AI 寻求讲解」开始吧。
+                </div>
+                <div v-else class="ai-floating-messages">
+                    <div v-for="(msg, idx) in aiMessages" :key="'ai-msg-' + idx"
+                        :class="['ai-msg', msg.role === 'user' ? 'ai-msg-user' : 'ai-msg-assistant']">
+                        <div class="ai-msg-bubble">{{ msg.content }}</div>
+                    </div>
+                    <div v-if="aiTyping" class="ai-msg ai-msg-assistant">
+                        <div class="ai-typing-indicator">
+                            <div class="ai-typing-dot"></div>
+                            <div class="ai-typing-dot"></div>
+                            <div class="ai-typing-dot"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="ai-floating-input">
+                <textarea v-model="aiInput" placeholder="就这道题继续向 AI 提问..." @keydown.enter.exact.prevent="sendAiChat"
+                    :disabled="explainLoading"></textarea>
+                <button type="button" class="btn-primary" @click="sendAiChat"
+                    :disabled="explainLoading || !aiInput.trim()">
+                    <span v-if="!explainLoading">发送</span>
+                    <span v-else><i class="bi bi-hourglass-split"></i></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, onUnmounted } = Vue;
+
+        createApp({
+            setup() {
+                const currentDataset = ref('student_scores');
+                const totalScore = ref(0);
+                const currentUser = ref(null);
+                const currentQuestion = ref(null);
+                const loading = ref(false);
+                const loadingSource = ref('');
+
+                const userSql = ref('');
+                const submitting = ref(false);
+                const judgeResult = ref(null);
+                const schemaPreview = ref({});
+
+                const hasSubmitted = ref(false);
+                const answerText = ref('');
+                const answerLoading = ref(false);
+                const explainText = ref('');
+                const explainLoading = ref(false);
+
+                const llmHint = ref('');
+                const chatMessages = ref([]);
+
+                const aiPanelVisible = ref(false);
+                const aiMessages = ref([]);
+                const aiInput = ref('');
+                const aiTyping = ref(false);
+                const aiChatBody = ref(null);
+                const aiPanelRight = ref(24);
+                const aiPanelBottom = ref(80);
+                const aiDragging = ref(false);
+                const dragStart = ref({ x: 0, y: 0 });
+                const dragStartPos = ref({ right: 24, bottom: 80 });
+
+                const toasts = ref([]);
+                const editor = ref(null);
+                const useMonaco = ref(false);
+                const lastAiClickTs = ref(0);
+
+                function extractErrorMessage(err, fallback) {
+                    if (err && err.response && err.response.data) {
+                        if (err.response.data.msg) {
+                            return err.response.data.msg;
+                        }
+                        if (err.response.data.error) {
+                            return err.response.data.error;
+                        }
+                    }
+                    if (err && err.message) {
+                        return err.message;
+                    }
+                    return fallback || '请求失败';
+                }
+
+                function showToast(message, type) {
+                    const t = type || 'info';
+                    const icons = {
+                        success: 'bi-check-circle-fill',
+                        error: 'bi-x-circle-fill',
+                        info: 'bi-info-circle-fill'
+                    };
+                    const toast = { message: message, type: t, icon: icons[t] || icons.info };
+                    toasts.value.push(toast);
+                    setTimeout(function () {
+                        const idx = toasts.value.indexOf(toast);
+                        if (idx > -1) {
+                            toasts.value.splice(idx, 1);
+                        }
+                    }, 3000);
+                }
+
+                function scrollAiChatToBottom() {
+                    setTimeout(function () {
+                        if (aiChatBody.value) {
+                            aiChatBody.value.scrollTop = aiChatBody.value.scrollHeight;
+                        }
+                    }, 50);
+                }
+
+                async function typewriterEffect(fullText) {
+                    const msgIndex = aiMessages.value.length;
+                    aiMessages.value.push({ role: 'assistant', content: '', typing: true });
+                    scrollAiChatToBottom();
+
+                    const chars = fullText.split('');
+                    const speed = 20;
+
+                    for (let i = 0; i < chars.length; i += 1) {
+                        aiMessages.value[msgIndex].content += chars[i];
+                        if (i % 5 === 0) {
+                            scrollAiChatToBottom();
+                        }
+                        await new Promise(function (resolve) { setTimeout(resolve, speed); });
+                    }
+
+                    aiMessages.value[msgIndex].typing = false;
+                    scrollAiChatToBottom();
+                }
+
+                async function fetchCurrentUser() {
+                    try {
+                        const res = await axios.get('/api/auth/me');
+                        if (res.data && res.data.status === 'success' && res.data.data) {
+                            currentUser.value = res.data.data;
+                            totalScore.value = res.data.data.total_score || 0;
+                        } else {
+                            currentUser.value = null;
+                            totalScore.value = 0;
+                        }
+                    } catch (err) {
+                        console.error('获取当前用户失败', err);
+                    }
+                }
+
+                async function fetchSchemaPreview() {
+                    try {
+                        const res = await axios.get('/api/dataset/preview', {
+                            params: { dataset_key: currentDataset.value }
+                        });
+                        if (res.data && res.data.status === 'success' && res.data.data) {
+                            schemaPreview.value = res.data.data.tables || {};
+                        }
+                    } catch (err) {
+                        console.warn('加载示例数据失败', err);
+                    }
+                }
+
+                async function fetchQuestion(source, customHint) {
+                    const src = source || 'db';
+                    if (loading.value) {
+                        return;
+                    }
+
+                    if (src === 'llm') {
+                        const now = Date.now();
+                        if (now - lastAiClickTs.value < 5000) {
+                            showToast('AI 出题请求过于频繁，请稍后再试', 'error');
+                            return;
+                        }
+                        lastAiClickTs.value = now;
+                    }
+
+                    loading.value = true;
+                    loadingSource.value = src;
+
+                    judgeResult.value = null;
+                    userSql.value = '';
+                    hasSubmitted.value = false;
+                    answerText.value = '';
+                    explainText.value = '';
+                    if (editor.value) {
+                        editor.value.setValue('');
+                    }
+
+                    try {
+                        const params = { dataset_key: currentDataset.value, source: src };
+                        if (src === 'llm' && typeof customHint === 'string') {
+                            const trimmed = customHint.replace(/^\s+|\s+$/g, '');
+                            if (trimmed) {
+                                params.user_hint = trimmed;
+                            }
+                        }
+                        const res = await axios.get('/api/question/generate', { params: params });
+                        if (res.data && res.data.status === 'success') {
+                            currentQuestion.value = res.data.data;
+                            showToast('题目加载成功', 'success');
+                        } else {
+                            const msg = res.data && res.data.msg ? res.data.msg : '获取题目失败';
+                            showToast(msg, 'error');
+                        }
+                    } catch (err) {
+                        const msg = extractErrorMessage(err, '获取题目失败');
+                        showToast('获取题目失败: ' + msg, 'error');
+                    } finally {
+                        loading.value = false;
+                        loadingSource.value = '';
+                    }
+                }
+
+                async function sendChat() {
+                    const text = (llmHint.value || '').replace(/^\s+|\s+$/g, '');
+                    if (!text || loading.value) {
+                        return;
+                    }
+                    chatMessages.value.push({ role: 'user', content: text });
+                    await fetchQuestion('llm', text);
+                    if (currentQuestion.value) {
+                        chatMessages.value.push({
+                            role: 'assistant',
+                            content: '已为你生成一题：《' + currentQuestion.value.title + '》'
+                        });
+                    }
+                    llmHint.value = '';
+                }
+
+                async function submitSolution() {
+                    if (!currentQuestion.value || !userSql.value) {
+                        return;
+                    }
+                    submitting.value = true;
+                    try {
+                        const payload = {
+                            question_id: currentQuestion.value.id,
+                            user_sql: userSql.value
+                        };
+                        const res = await axios.post('/api/judge/submit', payload);
+                        if (res.data && res.data.status === 'success') {
+                            judgeResult.value = res.data.data;
+                            hasSubmitted.value = true;
+
+                            if (res.data.data && res.data.data.total_score != null) {
+                                totalScore.value = res.data.data.total_score;
+                            } else if (res.data.data && res.data.data.result === 'Pass') {
+                                totalScore.value = totalScore.value + res.data.data.score;
+                            }
+
+                            const r = res.data.data && res.data.data.result;
+                            if (r === 'Pass') {
+                                showToast('恭喜！答案正确！', 'success');
+                            } else if (r === 'Fail') {
+                                showToast('结果不一致，请检查逻辑', 'error');
+                            } else {
+                                showToast('执行出错，请检查 SQL 语法', 'error');
+                            }
+                        } else {
+                            const msg = res.data && res.data.msg ? res.data.msg : '判题失败';
+                            showToast(msg, 'error');
+                        }
+                    } catch (err) {
+                        const msg = extractErrorMessage(err, '系统错误');
+                        judgeResult.value = {
+                            result: 'Error',
+                            msg: msg,
+                            execution_time: 0
+                        };
+                        showToast('判题失败：' + msg, 'error');
+                    } finally {
+                        submitting.value = false;
+                    }
+                }
+
+                async function viewAnswer() {
+                    if (!currentQuestion.value || answerLoading.value) {
+                        return;
+                    }
+                    if (!hasSubmitted.value) {
+                        showToast('请先提交一次你的解答', 'error');
+                        return;
+                    }
+                    if (!currentQuestion.value.allow_view_answer) {
+                        showToast('本题暂未开放查看标准答案', 'error');
+                        return;
+                    }
+                    answerLoading.value = true;
+                    try {
+                        const res = await axios.get('/api/question/answer', {
+                            params: { question_id: currentQuestion.value.id }
+                        });
+                        if (res.data && res.data.status === 'success' && res.data.data) {
+                            answerText.value = res.data.data.standard_sql || '';
+                            showToast('标准答案已显示', 'success');
+                        } else {
+                            const msg = res.data && res.data.msg ? res.data.msg : '获取标准答案失败';
+                            showToast(msg, 'error');
+                        }
+                    } catch (err) {
+                        const msg = extractErrorMessage(err, '获取标准答案失败');
+                        showToast('获取标准答案失败: ' + msg, 'error');
+                    } finally {
+                        answerLoading.value = false;
+                    }
+                }
+
+                function buildHistoryText() {
+                    if (!aiMessages.value.length) {
+                        return '';
+                    }
+                    return aiMessages.value.map(function (m) {
+                        return (m.role === 'user' ? '学生：' : 'AI：') + m.content;
+                    }).join('\n');
+                }
+
+                async function askExplain() {
+                    if (!currentQuestion.value || !userSql.value) {
+                        showToast('请先写好并点击"运行"提交一次 SQL', 'error');
+                        return;
+                    }
+                    if (!judgeResult.value) {
+                        showToast('请先完成一次判题', 'error');
+                        return;
+                    }
+                    if (explainLoading.value) {
+                        return;
+                    }
+
+                    aiPanelVisible.value = true;
+                    showToast('AI 正在思考中...', 'info');
+
+                    const historyText = buildHistoryText();
+                    const baseMsg = judgeResult.value.msg || '';
+                    var combined = baseMsg;
+                    if (historyText) {
+                        combined = (baseMsg ? baseMsg + '\n\n' : '') + '历史对话（学生与 AI）：\n' + historyText;
+                    }
+
+                    const userReqText = judgeResult.value.result === 'Pass'
+                        ? '请点评并拓展一下我刚才的 SQL 答案，告诉我做得好的地方和可以改进的地方，并梳理相关知识点。'
+                        : '请详细分析一下我刚才提交的 SQL 哪里有问题，应该如何修改，并帮我梳理相关的 SQL 知识点。';
+
+                    aiMessages.value.push({ role: 'user', content: userReqText });
+                    scrollAiChatToBottom();
+
+                    explainLoading.value = true;
+                    aiTyping.value = true;
+                    try {
+                        const payload = {
+                            question_id: currentQuestion.value.id,
+                            user_sql: userSql.value,
+                            result: judgeResult.value.result,
+                            judge_message: (combined ? combined + '\n\n' : '') + '学生的请求：' + userReqText
+                        };
+                        const res = await axios.post('/api/judge/explain', payload);
+                        aiTyping.value = false;
+                        if (res.data && res.data.status === 'success' && res.data.data) {
+                            const feedback = res.data.data.feedback || '';
+                            explainText.value = feedback;
+                            await typewriterEffect(feedback);
+                            showToast('AI 讲解完成', 'success');
+                        } else {
+                            const msg = res.data && res.data.msg ? res.data.msg : 'AI 讲解失败';
+                            showToast(msg, 'error');
+                        }
+                    } catch (err) {
+                        aiTyping.value = false;
+                        const msg = extractErrorMessage(err, 'AI 讲解失败');
+                        showToast('AI 讲解失败: ' + msg, 'error');
+                    } finally {
+                        explainLoading.value = false;
+                    }
+                }
+
+                async function sendAiChat() {
+                    const text = (aiInput.value || '').replace(/^\s+|\s+$/g, '');
+                    if (!text) {
+                        return;
+                    }
+                    if (!currentQuestion.value || !userSql.value) {
+                        showToast('请先针对当前题目写 SQL 并点击"运行"', 'error');
+                        return;
+                    }
+                    if (!judgeResult.value) {
+                        showToast('请先完成一次判题', 'error');
+                        return;
+                    }
+                    if (explainLoading.value) {
+                        return;
+                    }
+
+                    aiPanelVisible.value = true;
+
+                    const historyText = buildHistoryText();
+                    const baseMsg = judgeResult.value.msg || '';
+                    var combined = baseMsg;
+                    if (historyText) {
+                        combined = (baseMsg ? baseMsg + '\n\n' : '') + '历史对话（学生与 AI）：\n' + historyText;
+                    }
+                    combined = (combined ? combined + '\n\n' : '') + '学生的最新提问：' + text;
+
+                    aiMessages.value.push({ role: 'user', content: text });
+                    aiInput.value = '';
+                    scrollAiChatToBottom();
+
+                    explainLoading.value = true;
+                    aiTyping.value = true;
+                    try {
+                        const payload = {
+                            question_id: currentQuestion.value.id,
+                            user_sql: userSql.value,
+                            result: judgeResult.value.result,
+                            judge_message: combined
+                        };
+                        const res = await axios.post('/api/judge/explain', payload);
+                        aiTyping.value = false;
+                        if (res.data && res.data.status === 'success' && res.data.data) {
+                            const feedback = res.data.data.feedback || '';
+                            explainText.value = feedback;
+                            await typewriterEffect(feedback);
+                        } else {
+                            const msg = res.data && res.data.msg ? res.data.msg : 'AI 讲解失败';
+                            showToast(msg, 'error');
+                        }
+                    } catch (err) {
+                        aiTyping.value = false;
+                        const msg = extractErrorMessage(err, 'AI 讲解失败');
+                        showToast('AI 讲解失败: ' + msg, 'error');
+                    } finally {
+                        explainLoading.value = false;
+                    }
+                }
+
+                function startDragAiPanel(event) {
+                    aiDragging.value = true;
+                    dragStart.value = { x: event.clientX, y: event.clientY };
+                    dragStartPos.value = { right: aiPanelRight.value, bottom: aiPanelBottom.value };
+                }
+
+                function handleWindowMouseMove(event) {
+                    if (!aiDragging.value) {
+                        return;
+                    }
+                    const dx = event.clientX - dragStart.value.x;
+                    const dy = event.clientY - dragStart.value.y;
+                    aiPanelRight.value = Math.max(0, dragStartPos.value.right - dx);
+                    aiPanelBottom.value = Math.max(0, dragStartPos.value.bottom - dy);
+                }
+
+                function handleWindowMouseUp() {
+                    aiDragging.value = false;
+                }
+
+                function getResultIcon(status) {
+                    if (status === 'Pass') {
+                        return 'bi-check-circle-fill';
+                    }
+                    if (status === 'Fail') {
+                        return 'bi-x-circle-fill';
+                    }
+                    return 'bi-exclamation-triangle-fill';
+                }
+
+                function changeDataset() {
+                    showToast('当前 Demo 仅提供 student_scores 场景', 'info');
+                }
+
+                async function loginOrRegister() {
+                    const username = window.prompt('请输入用户名（至少 3 个字符）：');
+                    if (!username) {
+                        return;
+                    }
+                    const password = window.prompt('请输入密码（至少 4 个字符）：');
+                    if (!password) {
+                        return;
+                    }
+
+                    try {
+                        const res = await axios.post('/api/auth/login', { username: username, password: password });
+                        if (res.data && res.data.status === 'success') {
+                            currentUser.value = res.data.data;
+                            totalScore.value = res.data.data.total_score || 0;
+                            showToast('登录成功', 'success');
+                            return;
+                        }
+                    } catch (err) {
+                        const code = (err && err.response && err.response.data && err.response.data.code) ? err.response.data.code : null;
+                        const msg = (err && err.response && err.response.data && err.response.data.msg) ? err.response.data.msg : '登录失败';
+                        if (code === 'USER_NOT_FOUND') {
+                            const ok = window.confirm(msg + '，是否使用该账号直接注册？');
+                            if (!ok) {
+                                return;
+                            }
+                            try {
+                                const resReg = await axios.post('/api/auth/register', { username: username, password: password });
+                                if (resReg.data && resReg.data.status === 'success') {
+                                    currentUser.value = resReg.data.data;
+                                    totalScore.value = resReg.data.data.total_score || 0;
+                                    showToast('注册并登录成功', 'success');
+                                    return;
+                                }
+                            } catch (err2) {
+                                const msg2 = extractErrorMessage(err2, '注册失败');
+                                showToast(msg2, 'error');
+                                return;
+                            }
+                        } else {
+                            showToast(msg, 'error');
+                            return;
+                        }
+                    }
+                }
+
+                async function logout() {
+                    try {
+                        await axios.post('/api/auth/logout');
+                        showToast('已退出登录', 'success');
+                    } catch (err) {
+                        console.error('退出登录失败', err);
+                    } finally {
+                        currentUser.value = null;
+                        totalScore.value = 0;
+                    }
+                }
+
+                onMounted(function () {
+                    if (window.require) {
+                        window.require.config({
+                            paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' }
+                        });
+                        window.require(['vs/editor/editor.main'], function () {
+                            const dom = document.getElementById('monaco-editor');
+                            if (!dom) {
+                                return;
+                            }
+                            editor.value = monaco.editor.create(dom, {
+                                value: userSql.value,
+                                language: 'sql',
+                                theme: 'vs-dark',
+                                automaticLayout: true,
+                                fontSize: 14,
+                                minimap: { enabled: false },
+                                scrollBeyondLastLine: false
+                            });
+                            editor.value.onDidChangeModelContent(function () {
+                                userSql.value = editor.value.getValue();
+                            });
+                            useMonaco.value = true;
+                        });
+                    }
+
+                    window.addEventListener('mousemove', handleWindowMouseMove);
+                    window.addEventListener('mouseup', handleWindowMouseUp);
+
+                    fetchCurrentUser();
+                    fetchSchemaPreview();
+                    fetchQuestion('db', null);
+                });
+
+                onUnmounted(function () {
+                    window.removeEventListener('mousemove', handleWindowMouseMove);
+                    window.removeEventListener('mouseup', handleWindowMouseUp);
+                });
+
+                return {
+                    currentDataset: currentDataset,
+                    totalScore: totalScore,
+                    currentUser: currentUser,
+                    currentQuestion: currentQuestion,
+                    loading: loading,
+                    loadingSource: loadingSource,
+                    userSql: userSql,
+                    submitting: submitting,
+                    judgeResult: judgeResult,
+                    schemaPreview: schemaPreview,
+                    hasSubmitted: hasSubmitted,
+                    answerText: answerText,
+                    answerLoading: answerLoading,
+                    explainText: explainText,
+                    explainLoading: explainLoading,
+                    llmHint: llmHint,
+                    chatMessages: chatMessages,
+                    aiPanelVisible: aiPanelVisible,
+                    aiMessages: aiMessages,
+                    aiInput: aiInput,
+                    aiTyping: aiTyping,
+                    aiChatBody: aiChatBody,
+                    aiPanelRight: aiPanelRight,
+                    aiPanelBottom: aiPanelBottom,
+                    useMonaco: useMonaco,
+                    toasts: toasts,
+                    fetchQuestion: fetchQuestion,
+                    sendChat: sendChat,
+                    submitSolution: submitSolution,
+                    viewAnswer: viewAnswer,
+                    askExplain: askExplain,
+                    sendAiChat: sendAiChat,
+                    startDragAiPanel: startDragAiPanel,
+                    changeDataset: changeDataset,
+                    loginOrRegister: loginOrRegister,
+                    logout: logout,
+                    getResultIcon: getResultIcon,
+                    Math: Math
+                };
+            }
+        }).mount('#app');
+    </script>
+    {% endraw %}
+</body>
+
+</html>

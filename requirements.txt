@@ -1,0 +1,7 @@
+flask
+pymysql
+sqlalchemy
+pandas
+python-dotenv
+requests
+

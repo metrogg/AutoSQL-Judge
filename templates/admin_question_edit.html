@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>题目编辑 - AutoSQL-Judge 后台</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="/static/css/apple-style.css">
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+
+<body>
+    <nav class="navbar-admin"
+        style="backdrop-filter: blur(18px); background: rgba(250,250,252,0.9); padding:10px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(0,0,0,0.05);">
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <div style="display:flex; align-items:center; gap:8px; font-weight:600;">
+                <i class="bi bi-file-earmark-text"></i>
+                <span>题目{{ '编辑' if question else '新建' }}</span>
+            </div>
+            <div style="font-size:12px; color:#8e8e93;">数据集 key: {{ dataset_key }}</div>
+        </div>
+        <div>
+            <a href="/admin" class="btn-link-like" style="text-decoration:none;">
+                <i class="bi bi-arrow-left"></i>
+                返回后台
+            </a>
+        </div>
+    </nav>
+
+    <main class="admin-main" style="max-width:900px; margin:24px auto;">
+        <section class="apple-card">
+            <div class="card-header">
+                <span><i class="bi bi-pencil-square"></i> 题目基础信息</span>
+            </div>
+            <div class="card-body">
+                <form method="post" action="/admin/questions/save"
+                    style="display:flex; flex-direction:column; gap:12px; font-size:13px;">
+                    {% if question %}
+                    <input type="hidden" name="question_id" value="{{ question.id }}">
+                    {% endif %}
+                    <input type="hidden" name="next" value="/admin">
+                    <div>
+                        <label style="display:block; margin-bottom:4px; color:#8e8e93;">数据集 dataset_key</label>
+                        <input type="text" name="dataset_key" value="{{ dataset_key }}"
+                            style="width:260px; padding:6px 8px; border-radius:8px; border:1px solid #d1d1d6;">
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:4px; color:#8e8e93;">题目标题（自然语言描述）</label>
+                        <input type="text" name="title" value="{{ question.title if question else '' }}"
+                            style="width:100%; padding:6px 8px; border-radius:8px; border:1px solid #d1d1d6;">
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:4px; color:#8e8e93;">标准答案 SQL（standard_sql）</label>
+                        <textarea name="standard_sql" rows="8"
+                            style="width:100%; padding:8px 10px; border-radius:10px; border:1px solid #d1d1d6; font-family:SFMono-Regular,Consolas,monospace; font-size:13px; white-space:pre;">{{ question.standard_sql if question else '' }}</textarea>
+                    </div>
+                    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                        <div>
+                            <label style="display:block; margin-bottom:4px; color:#8e8e93;">难度 difficulty</label>
+                            <select name="difficulty"
+                                style="padding:4px 8px; border-radius:8px; border:1px solid #d1d1d6; min-width:120px;">
+                                {% set diff = question.difficulty if question else 'Medium' %}
+                                <option value="Easy" {% if diff=='Easy' %}selected{% endif %}>Easy</option>
+                                <option value="Medium" {% if diff=='Medium' %}selected{% endif %}>Medium</option>
+                                <option value="Hard" {% if diff=='Hard' %}selected{% endif %}>Hard</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block; margin-bottom:4px; color:#8e8e93;">分值 score</label>
+                            <input type="number" name="score" value="{{ question.score if question else 10 }}"
+                                style="width:100px; padding:4px 8px; border-radius:8px; border:1px solid #d1d1d6;">
+                        </div>
+                        <div>
+                            <label style="display:block; margin-bottom:4px; color:#8e8e93;">答案查看设置</label>
+                            <label style="font-weight:normal;">
+                                <input type="checkbox" name="allow_view_answer" value="1" {% if question and
+                                    question.allow_view_answer %}checked{% endif %}>
+                                学生提交本题后允许查看标准答案
+                            </label>
+                        </div>
+                        {% if question %}
+                        <div>
+                            <label style="display:block; margin-bottom:4px; color:#8e8e93;">题目来源 source</label>
+                            <div
+                                style="padding:4px 8px; border-radius:8px; border:1px solid #e5e5ea; background:#f9f9ff;">
+                                {{ question.source }}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div style="margin-top:16px; display:flex; gap:8px;">
+                        <button type="submit" class="btn-primary">
+                            <i class="bi bi-check-lg"></i>
+                            保存
+                        </button>
+                        <a href="/admin" class="btn-secondary"
+                            style="text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                            <i class="bi bi-x-lg"></i>
+                            取消
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section class="apple-card">
+            <div class="card-header">
+                <span><i class="bi bi-stars"></i> AI 高级出题（后台专用）</span>
+            </div>
+            <div class="card-body" style="font-size:13px; display:flex; flex-direction:column; gap:10px;">
+                <div style="color:#8e8e93;">根据更细粒度的要求，请大模型生成一题 SQL 练习题草稿，并自动填入上方表单（不会直接写入题库）。</div>
+                <div style="display:flex; flex-wrap:wrap; gap:16px;">
+                    <div>
+                        <label style="display:block; margin-bottom:4px; color:#8e8e93;">目标难度</label>
+                        <select id="ai-difficulty"
+                            style="padding:4px 8px; border-radius:8px; border:1px solid #d1d1d6; min-width:140px;">
+                            <option value="">跟随上方选择/自动判断</option>
+                            <option value="Easy">Easy</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Hard">Hard</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:4px; min-width:200px;">
+                        <label style="display:block; margin-bottom:4px; color:#8e8e93;">结构要求</label>
+                        <label style="font-weight:normal;">
+                            <input type="checkbox" id="ai-require-join"> 包含多表 JOIN
+                        </label>
+                        <label style="font-weight:normal;">
+                            <input type="checkbox" id="ai-require-group"> 使用 GROUP BY 聚合
+                        </label>
+                        <label style="font-weight:normal;">
+                            <input type="checkbox" id="ai-require-subquery"> 尽量包含子查询
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:4px; color:#8e8e93;">业务场景 / 出题方向</label>
+                    <textarea id="ai-business-hint" rows="3"
+                        style="width:100%; padding:6px 8px; border-radius:8px; border:1px solid #d1d1d6; font-size:13px; resize:vertical;"
+                        placeholder="例如：统计各课程平均分并找出成绩分布异常的学生，适合期末复习的综合查询题等"></textarea>
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:4px; color:#8e8e93;">额外约束（可选）</label>
+                    <textarea id="ai-extra-constraints" rows="2"
+                        style="width:100%; padding:6px 8px; border-radius:8px; border:1px solid #d1d1d6; font-size:13px; resize:vertical;"
+                        placeholder="例如：不要使用窗口函数；尽量控制在一屏可读范围；适合课堂练习"></textarea>
+                </div>
+                <div>
+                    <button type="button" id="ai-generate-btn" class="btn-secondary"
+                        onclick="adminGenerateAiQuestion()">
+                        <i class="bi bi-magic"></i>
+                        AI 生成草稿并填入上方
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script>
+        function adminGenerateAiQuestion() {
+            var dsInput = document.querySelector('input[name="dataset_key"]');
+            var titleInput = document.querySelector('input[name="title"]');
+            var sqlTextarea = document.querySelector('textarea[name="standard_sql"]');
+            var diffSelect = document.querySelector('select[name="difficulty"]');
+            var scoreInput = document.querySelector('input[name="score"]');
+
+            var datasetKey = dsInput ? (dsInput.value || '').trim() : '';
+            if (!datasetKey) {
+                datasetKey = 'student_scores';
+            }
+
+            var payload = {
+                dataset_key: datasetKey,
+                difficulty: document.getElementById('ai-difficulty').value,
+                require_join: document.getElementById('ai-require-join').checked,
+                require_group_by: document.getElementById('ai-require-group').checked,
+                require_subquery: document.getElementById('ai-require-subquery').checked,
+                business_hint: document.getElementById('ai-business-hint').value,
+                extra_constraints: document.getElementById('ai-extra-constraints').value
+            };
+
+            var btn = document.getElementById('ai-generate-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = '生成中...';
+            }
+
+            axios.post('/api/admin/llm_generate_question', payload)
+                .then(function (res) {
+                    if (res.data && res.data.status === 'success' && res.data.data && res.data.data.question) {
+                        var q = res.data.data.question;
+                        if (q.title && titleInput) {
+                            titleInput.value = q.title;
+                        }
+                        if (q.standard_sql && sqlTextarea) {
+                            sqlTextarea.value = q.standard_sql;
+                        }
+                        if (q.difficulty && diffSelect) {
+                            diffSelect.value = q.difficulty;
+                        }
+                        if (q.score && scoreInput) {
+                            scoreInput.value = q.score;
+                        }
+                        alert('已生成一题草稿，并填入表单，请检查后保存。');
+                    } else {
+                        var msg = (res.data && res.data.msg) || '未知错误';
+                        alert('生成失败：' + msg);
+                    }
+                })
+                .catch(function (err) {
+                    var msg = (err.response && err.response.data && err.response.data.msg) || err.message || '出错了';
+                    alert('调用大模型失败：' + msg);
+                })
+                .finally(function () {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerText = 'AI 生成草稿并填入上方';
+                    }
+                });
+        }
+    </script>
+</body>
+
+</html>
