@@ -14,22 +14,34 @@
 - **实体：User（用户）**
   - 属性：`id`，`username`，`password_hash`，`total_score`，`created_at`
 
+- **实体：Dataset（数据集/场景配置）**
+  - 属性：`id`，`key`，`name`，`description`，`db_name`，`schema_desc`，`is_active`，`created_at`
+
 - **实体：Question（题目）**
-  - 属性：`id`，`title`，`standard_sql`，`difficulty`，`score`，`created_at`
+  - 属性：`id`，`title`，`standard_sql`，`difficulty`，`score`，`dataset_id`，`source`，`allow_view_answer`，`created_at`
 
 - **实体：Record（做题记录）**
-  - 属性：`id`，`user_id`，`question_id`，`user_sql`，`result`，`score`，`exec_time`，`error_log`，`created_at`
+  - 属性：`id`，`user_id`，`question_id`，`user_sql`，`result`，`score`，`exec_time`，`error_log`，`dataset_id`，`created_at`
+
+- **实体：LLMCall（大模型调用日志）**
+  - 属性：`id`，`dataset_key`，`dataset_id`，`difficulty`，`status`，`error_message`，`latency_ms`，`created_at`
 
 - **联系：**
   - 一个 `User` 可以有多条 `Record`：`User (1) —— (N) Record`
+  - 一个 `Dataset` 可以有多条 `Question`：`Dataset (1) —— (N) Question`
   - 一个 `Question` 可以对应多条 `Record`：`Question (1) —— (N) Record`
+  - 一个 `Dataset` 可以有多条 `Record`（冗余字段便于统计）：`Dataset (1) —— (N) Record`
+  - 一个 `Dataset` 可以对应多条 `LLMCall`（逻辑关联/日志）：`Dataset (1) —— (N) LLMCall`
 
 #### ER 图（Mermaid 表示）
 
 ```mermaid
 erDiagram
     USER ||--o{ RECORD : "做题"
+    DATASET ||--o{ QUESTION : "包含题目"
     QUESTION ||--o{ RECORD : "被作答"
+    DATASET ||--o{ RECORD : "统计/场景"
+    DATASET ||--o{ LLM_CALL : "生成日志"
 
     USER {
         int id
@@ -39,12 +51,26 @@ erDiagram
         datetime created_at
     }
 
+    DATASET {
+        int id
+        string key
+        string name
+        string description
+        string db_name
+        text schema_desc
+        int is_active
+        datetime created_at
+    }
+
     QUESTION {
         int id
         text title
         text standard_sql
         string difficulty
         int score
+        int dataset_id
+        string source
+        int allow_view_answer
         datetime created_at
     }
 
@@ -57,6 +83,18 @@ erDiagram
         int score
         float exec_time
         text error_log
+        int dataset_id
+        datetime created_at
+    }
+
+    LLM_CALL {
+        int id
+        string dataset_key
+        int dataset_id
+        string difficulty
+        string status
+        text error_message
+        float latency_ms
         datetime created_at
     }
 ```
@@ -128,23 +166,46 @@ erDiagram
 #### 2.1.2 Questions 表
 
 - **关系模式：**  
-  `Questions(id, title, standard_sql, difficulty, score, created_at)`
+  `Questions(id, title, standard_sql, difficulty, score, dataset_id, source, allow_view_answer, created_at)`
 
 - **约束条件：**
   - 主键：`id`
+  - 外键：`dataset_id` → `Datasets(id)`
   - 域约束：`difficulty` ∈ {`Easy`, `Medium`, `Hard`}
   - 业务约束：`score` 常用取值如 {10, 20, 30}
+  - 业务约束：`source` 常用取值如 {`db`, `llm`}
+  - 业务约束：`allow_view_answer` ∈ {0, 1}
 
 #### 2.1.3 Records 表
 
 - **关系模式：**  
-  `Records(id, user_id, question_id, user_sql, result, score, exec_time, error_log, created_at)`
+  `Records(id, user_id, question_id, user_sql, result, score, exec_time, error_log, dataset_id, created_at)`
 
 - **约束条件：**
   - 主键：`id`
   - 外键：`user_id` → `Users(id)`
   - 外键：`question_id` → `Questions(id)`
+  - 外键：`dataset_id` → `Datasets(id)`（冗余字段便于统计）
   - 域约束：`result` ∈ {`Pass`, `Fail`, `Error`}
+
+#### 2.1.4 Datasets 表
+
+- **关系模式：**  
+  `Datasets(id, key, name, description, db_name, schema_desc, created_at, is_active)`
+
+- **约束条件：**
+  - 主键：`id`
+  - 候选键：`key` 唯一
+  - 业务约束：`is_active` ∈ {0, 1}
+
+#### 2.1.5 LLM_Calls 表
+
+- **关系模式：**  
+  `LLM_Calls(id, dataset_key, dataset_id, difficulty, status, error_message, latency_ms, created_at)`
+
+- **约束条件：**
+  - 主键：`id`
+  - 逻辑关联：`dataset_id` → `Datasets(id)`（日志表通常不强制外键约束，避免影响落库）
 
 ### 2.2 靶场库示例 `ds_student_scores`
 
@@ -206,7 +267,7 @@ erDiagram
 
 2. 在 `Questions` 表中引入外键 `dataset_id`：
    - 扩展后的关系模式：
-     `Questions(id, title, standard_sql, difficulty, score, created_at, dataset_id)`
+     `Questions(id, title, standard_sql, difficulty, score, created_at, dataset_id, source, allow_view_answer)`
    - 约束：
      - 外键：`dataset_id` → `Datasets(id)`。
    - 作用：
@@ -219,6 +280,12 @@ erDiagram
      - 外键：`dataset_id` → `Datasets(id)`。
    - 原因：
      - 虽然可以通过 `Records.question_id → Questions.dataset_id` 间接获取数据集信息，但在高并发、大数据量的统计查询场景下，直接在 `Records` 上按 `dataset_id` 过滤和聚合会更加高效，属于“以少量冗余换取查询性能”的折中设计。
+
+5. 增加 `llm_calls` 表记录大模型调用日志：
+   - 关系模式：
+     `LLM_Calls(id, dataset_key, dataset_id, difficulty, status, error_message, latency_ms, created_at)`
+   - 作用：
+     - 记录 LLM 出题/讲解过程的成功失败、耗时和错误信息，便于排错与统计。
 
 4. 数据集与物理库/表的关系：
    - 当前版本：每个数据集对应一个独立的靶场库，例如：
